@@ -10,5 +10,5 @@ path = "./bin/scryfall_convert.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rusqlite = "0.31.0"
+rusqlite = { version = "0.31.0", features = ["load_extension"] }
 serde_json = "1.0.118"
