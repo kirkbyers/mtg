@@ -1,3 +1,7 @@
+use sqlite_vec::sqlite3_vec_init;
+
 fn main() {
-    println!("Hello, world!");
+    unsafe {
+        sqlite3_vec_init();   
+    }
 }
