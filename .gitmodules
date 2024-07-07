@@ -1,3 +1,0 @@
-[submodule "sqlite-vec"]
-	path = sqlite-vec
-	url = git@github.com:kirkbyers/sqlite-vec.git

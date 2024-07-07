@@ -1,28 +1,11 @@
-use rusqlite::{params, Connection, Result};
+use rusqlite::{params, Result};
 use serde_json::Value;
 use std::fs::File;
 use std::io::BufReader;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Step 1: Set up the database
-    let mut conn = Connection::open("./data/scryfall_cards.db")?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS cards (
-            id TEXT PRIMARY KEY,
-            name TEXT,
-            set_code TEXT,
-            collector_number TEXT,
-            type_line TEXT,
-            oracle_text TEXT,
-            mana_cost TEXT,
-            cmc REAL,
-            colors TEXT,
-            rarity TEXT,
-            image_uris TEXT
-        )",
-        [],
-    )?;
+    let mut conn = mtg::db::init()?;
 
     // Step 2: Read the JSON file
     let file = File::open("./data/scryfall-default-cards.json")?;
