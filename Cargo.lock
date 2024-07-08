@@ -634,6 +634,7 @@ name = "mtg"
 version = "0.1.0"
 dependencies = [
  "fastembed",
+ "indicatif",
  "rusqlite",
  "serde_json",
  "sqlite-vec",

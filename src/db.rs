@@ -4,12 +4,13 @@ pub fn init() -> Result<Connection, Box<dyn std::error::Error>>{
     let conn = Connection::open("./data/scryfall_cards.db")?;
 
     unsafe {
-        sqlite_vec::sqlite3_vec_init();
+        conn.load_extension("./vec0.dylib", None)?
     };
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS cards (
-            id TEXT PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source_id TEXT,
             name TEXT,
             set_code TEXT,
             collector_number TEXT,
@@ -20,14 +21,16 @@ pub fn init() -> Result<Connection, Box<dyn std::error::Error>>{
             colors TEXT,
             rarity TEXT,
             image_uris TEXT
-        )",
+        );
+        CREATE INDEX IF NOT EXISTS idx_source_id ON cards (source_id);
+        ",
         [],
     )?;
 
+
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS card_vecs using vec0 (
-            card_id TEXT PRIMARY KEY,
-            embedding float[]
+        "CREATE VIRTUAL TABLE IF NOT EXISTS card_vecs using vec0 (
+            embedding float[384]
         )",
         [],
     )?;
