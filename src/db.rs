@@ -100,7 +100,9 @@ pub fn prep_insert_set(conn: &Connection) -> rusqlite::Result<rusqlite::Statemen
     )
 }
 
-pub fn get_random_image_uris(conn: &Connection) -> Result<(String, String, String, String, String, String), Box<dyn std::error::Error>> {
+pub fn get_random_image_uris(
+    conn: &Connection,
+) -> Result<(String, String, String, String, String, String), Box<dyn std::error::Error>> {
     let mut stmt = conn.prepare("SELECT small, normal, large, png, art_crop, border_crop FROM image_uris ORDER BY random() LIMIT 1;")?;
     let mut rows = stmt.query([])?;
     if let Some(row) = rows.next()? {

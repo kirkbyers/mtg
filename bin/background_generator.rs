@@ -1,14 +1,13 @@
-use std::{fs::canonicalize, thread::sleep, time::Duration};
 use chrono::prelude::*;
+use image::{GenericImageView, ImageBuffer};
 use mtg::db::{get_random_image_uris, init_conn};
 use reqwest::blocking::Client;
-use std::fs::File;
 use std::fs;
+use std::fs::File;
 use std::io::copy;
-use image::{GenericImageView, ImageBuffer};
+use std::{fs::canonicalize, thread::sleep, time::Duration};
 
-fn main() ->  Result<(), Box<dyn std::error::Error>> {
-
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut last_ran: i64 = 0;
     let conn = init_conn()?;
 
@@ -46,10 +45,15 @@ fn main() ->  Result<(), Box<dyn std::error::Error>> {
 
             // Calculate new dimensions for portrait
             let new_port_height = land_height;
-            let new_port_width = (port_width as f32 * (new_port_height as f32 / port_height as f32)) as u32;
+            let new_port_width =
+                (port_width as f32 * (new_port_height as f32 / port_height as f32)) as u32;
 
             // Resize portrait
-            let resized_portrait = portrait.resize(new_port_width, new_port_height, image::imageops::FilterType::Lanczos3);
+            let resized_portrait = portrait.resize(
+                new_port_width,
+                new_port_height,
+                image::imageops::FilterType::Lanczos3,
+            );
 
             // Blur landscape
             landscape = landscape.blur(5.0);
@@ -67,7 +71,8 @@ fn main() ->  Result<(), Box<dyn std::error::Error>> {
 
             // Overlay portrait on landscape
             for (x, y, pixel) in resized_portrait.to_rgba8().enumerate_pixels() {
-                if pixel[3] > 0 { // Only copy non-transparent pixels
+                if pixel[3] > 0 {
+                    // Only copy non-transparent pixels
                     output.put_pixel(x + x_offset, y, *pixel);
                 }
             }
