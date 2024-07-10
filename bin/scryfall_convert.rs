@@ -1,10 +1,11 @@
+use mtg::db::{prep_insert_card, prep_insert_card_vec, prep_insert_set};
 use rusqlite::{params, Result};
 use serde_json::Value;
 use std::{fs::File, io::Read, time::Duration};
 use indicatif::{ProgressBar, ProgressStyle};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-
+    let conn = mtg::db::init_conn()?;
     // Read the JSON file
     let mut file_string = String::new();
     let spinner = ProgressBar::new_spinner();
@@ -26,37 +27,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     progress_bar.set_message("Processing cards");
     let model = mtg::embedings::init()?;
     
-    let conn = mtg::db::init()?;
-    let mut insert_card = conn.prepare(
-        "INSERT OR REPLACE INTO cards (
-            source_id, name, set_code, collector_number, type_line, oracle_text,
-            mana_cost, cmc, colors, rarity, image_uris
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
-    )?;
-    let mut insert_card_vec = conn.prepare(
-        "INSERT OR REPLACE INTO card_vecs (
-            rowid, embedding
-        ) VALUES (?, ?);",
-    )?;
-
+    let mut insert_card = prep_insert_card(&conn)?;
+    let mut insert_card_vec = prep_insert_card_vec(&conn)?;
+    let mut insert_set = prep_insert_set(&conn)?;
 
     for card in cards {
         // Process each card and update the progress bar
         let card_vec = model.embed(vec![
-            format!("{:?} {:?}", card["name"].as_str(), card["oracle_text"].as_str())
+            format!("{:?} {:?} {:?}", 
+            card["name"].as_str(), 
+            card["oracle_text"].as_str(),
+            card["flavor_text"].as_str(),
+        )
         ], None)?;
+        let _set_res_id = insert_set.insert(params![
+            card["set"].as_str(),
+            card["set_name"].as_str(),
+            card["set_type"].as_str(),
+            card["released_at"].as_str()
+        ])?;
         let res_id = insert_card.insert(params![
             card["id"].as_str(),
+            card["oracle_id"].as_str(),
             card["name"].as_str(),
-            card["set"].as_str(),
-            card["collector_number"].as_str(),
-            card["type_line"].as_str(),
-            card["oracle_text"].as_str(),
+            card["lang"].as_str(),
+            card["released_at"].as_str(),
             card["mana_cost"].as_str(),
             card["cmc"].as_f64(),
-            card["colors"].to_string(),
+            card["type_line"].as_str(),
+            card["oracle_text"].as_str(),
+            card["power"].as_str(),
+            card["toughness"].as_str(),
             card["rarity"].as_str(),
-            card["image_uris"].to_string(),
+            card["flavor_text"].as_str(),
+            card["artist"].as_str(),
+            card["set"].as_str(),
+            card["collector_number"].to_string(),
+            card["digital"].to_string(),
         ])?;
         insert_card_vec.execute(params![
             &res_id,
