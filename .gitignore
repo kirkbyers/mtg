@@ -2,3 +2,5 @@
 data
 vec0.*
 .fastembed_cache
+*.jpg
+*.png

@@ -99,3 +99,19 @@ pub fn prep_insert_set(conn: &Connection) -> rusqlite::Result<rusqlite::Statemen
         "INSERT OR REPLACE INTO sets (code, name, set_type, released_at) VALUES (?, ?, ?, ?);",
     )
 }
+
+pub fn get_random_image_uris(conn: &Connection) -> Result<(String, String, String, String, String, String), Box<dyn std::error::Error>> {
+    let mut stmt = conn.prepare("SELECT small, normal, large, png, art_crop, border_crop FROM image_uris ORDER BY random() LIMIT 1;")?;
+    let mut rows = stmt.query([])?;
+    if let Some(row) = rows.next()? {
+        let small: String = row.get(0)?;
+        let normal: String = row.get(1)?;
+        let large: String = row.get(2)?;
+        let png: String = row.get(3)?;
+        let art_crop: String = row.get(4)?;
+        let border_crop: String = row.get(5)?;
+        Ok((small, normal, large, png, art_crop, border_crop))
+    } else {
+        Err("No image URIs found".into())
+    }
+}
