@@ -1,8 +1,8 @@
-use mtg::db::{prep_insert_card, prep_insert_card_vec, prep_insert_set};
+use indicatif::{ProgressBar, ProgressStyle};
+use mtg::db::{prep_insert_card, prep_insert_card_vec, prep_insert_image_uris, prep_insert_set};
 use rusqlite::{params, Result};
 use serde_json::Value;
 use std::{fs::File, io::Read, time::Duration};
-use indicatif::{ProgressBar, ProgressStyle};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let conn = mtg::db::init_conn()?;
@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let spinner = ProgressBar::new_spinner();
     spinner.set_message("Reading scryfall data");
     spinner.set_style(
-        ProgressStyle::default_spinner().template("{spinner:.green} [{elapsed_precise}] {msg}")?
+        ProgressStyle::default_spinner().template("{spinner:.green} [{elapsed_precise}] {msg}")?,
     );
     spinner.enable_steady_tick(Duration::from_millis(100));
     File::open("./data/scryfall-default-cards.json")?.read_to_string(&mut file_string)?;
@@ -26,20 +26,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     progress_bar.set_message("Processing cards");
     let model = mtg::embedings::init()?;
-    
+
     let mut insert_card = prep_insert_card(&conn)?;
     let mut insert_card_vec = prep_insert_card_vec(&conn)?;
     let mut insert_set = prep_insert_set(&conn)?;
+    let mut insert_image_uris = prep_insert_image_uris(&conn)?;
 
     for card in cards {
+        // Skipping non-english to save time processing
+        if card["lang"].as_str() != Some("en") {
+            progress_bar.inc(1);
+            continue;
+        }
         // Process each card and update the progress bar
-        let card_vec = model.embed(vec![
-            format!("{:?} {:?} {:?}", 
-            card["name"].as_str(), 
-            card["oracle_text"].as_str(),
-            card["flavor_text"].as_str(),
-        )
-        ], None)?;
+        let card_vec = model.embed(
+            vec![format!(
+                "{:?} {:?} {:?}",
+                card["name"].as_str(),
+                card["oracle_text"].as_str(),
+                card["flavor_text"].as_str(),
+            )],
+            None,
+        )?;
         let _set_res_id = insert_set.insert(params![
             card["set"].as_str(),
             card["set_name"].as_str(),
@@ -65,13 +73,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             card["collector_number"].to_string(),
             card["digital"].to_string(),
         ])?;
+        if let Some(image_uris) = card["image_uris"].as_object() {
+            let _image_res_id = insert_image_uris.insert(params![
+                card["id"].as_str(),
+                image_uris["small"].as_str(),
+                image_uris["normal"].as_str(),
+                image_uris["large"].as_str(),
+                image_uris["png"].as_str(),
+                image_uris["art_crop"].as_str(),
+                image_uris["border_crop"].as_str(),
+            ])?;
+        }
+
         insert_card_vec.execute(params![
             &res_id,
-            &card_vec[0].iter().flat_map(|f| f.to_ne_bytes().to_vec()).collect::<Vec<_>>(),
+            &card_vec[0]
+                .iter()
+                .flat_map(|f| f.to_ne_bytes().to_vec())
+                .collect::<Vec<_>>(),
         ])?;
         progress_bar.inc(1);
     }
-
 
     // Step 9: Finish and clear the progress bar
     progress_bar.finish();
