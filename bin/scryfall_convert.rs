@@ -1,6 +1,6 @@
 use indicatif::{ProgressBar, ProgressStyle};
 use mtg::db::{prep_insert_card, prep_insert_card_vec, prep_insert_image_uris, prep_insert_set};
-use rusqlite::{params, Result};
+use rusqlite::{params, Result, Row};
 use serde_json::Value;
 use std::{fs::File, io::Read, time::Duration};
 
@@ -16,9 +16,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     spinner.enable_steady_tick(Duration::from_millis(100));
     File::open("./data/scryfall-default-cards.json")?.read_to_string(&mut file_string)?;
     let cards = serde_json::from_str::<Vec<Value>>(&file_string)?;
+    let cards_count: u64 = cards.len() as u64;
     spinner.finish();
 
-    let progress_bar = ProgressBar::new(cards.len() as u64);
+    let progress_bar = ProgressBar::new(cards_count);
     progress_bar.set_style(
         ProgressStyle::default_bar()
             .template("[{elapsed_precise}] {bar:40.cyan/blue} {msg} {pos}/{len} ({eta})")?
@@ -38,23 +39,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             progress_bar.inc(1);
             continue;
         }
-        // Process each card and update the progress bar
-        let card_vec = model.embed(
-            vec![format!(
-                "{:?} {:?} {:?}",
-                card["name"].as_str(),
-                card["oracle_text"].as_str(),
-                card["flavor_text"].as_str(),
-            )],
-            None,
-        )?;
+
         let _set_res_id = insert_set.insert(params![
             card["set"].as_str(),
             card["set_name"].as_str(),
             card["set_type"].as_str(),
             card["released_at"].as_str()
         ])?;
-        let res_id = insert_card.insert(params![
+        let _res_id = insert_card.insert(params![
             card["id"].as_str(),
             card["oracle_id"].as_str(),
             card["name"].as_str(),
@@ -85,14 +77,61 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ])?;
         }
 
-        insert_card_vec.execute(params![
-            &res_id,
-            &card_vec[0]
-                .iter()
-                .flat_map(|f| f.to_ne_bytes().to_vec())
-                .collect::<Vec<_>>(),
-        ])?;
         progress_bar.inc(1);
+    }
+    progress_bar.finish();
+
+    let progress_bar = ProgressBar::new(cards_count);
+    progress_bar.set_style(
+        ProgressStyle::default_bar()
+            .template("[{elapsed_precise}] {bar:40.cyan/blue} {msg} {pos}/{len} ({eta})")?
+            .progress_chars("#>-"),
+    );
+    progress_bar.set_message("Processing embeddings");
+    let page_size = 100;
+    let mut get_card_info_page = conn.prepare(&format!(
+        "SELECT name, COALESCE(oracle_text, ''), COALESCE(flavor_text, ''), rowid
+        FROM cards c
+        WHERE rowid >= ?
+        LIMIT {};",
+        page_size
+    ))?;
+
+    let card_info_mapper = |f: &Row| {
+        let name: String = f.get(0)?;
+        let oracle: String = f.get(1)?;
+        let flavor: String = f.get(2)?;
+
+        Ok(format!("{:?} {:?} {:?}", &name, &oracle, &flavor,))
+    };
+
+    // Loop through the newly stored data, and process the vector embeddings
+    let mut offset = 0;
+    loop {
+        let card_info: Vec<String> = get_card_info_page
+            .query_map(params![offset], card_info_mapper)?
+            .map(|result| result.map_err(|e| e.into()))
+            .collect::<Result<Vec<String>, Box<dyn std::error::Error>>>()?;
+
+        if card_info.len() > 0 {
+            let embeddings = model.embed(card_info.clone(), Some(page_size))?;
+            for (idx, val) in embeddings.iter().enumerate() {
+                insert_card_vec.execute(params![
+                    idx + offset,
+                    val.iter()
+                        .flat_map(|f| f.to_ne_bytes().to_vec())
+                        .collect::<Vec<_>>(),
+                ])?;
+            }
+        }
+
+        if card_info.len() < page_size {
+            progress_bar.finish();
+            break;
+        }
+
+        progress_bar.inc(card_info.len().try_into()?);
+        offset += page_size
     }
 
     // Step 9: Finish and clear the progress bar
