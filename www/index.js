@@ -38,6 +38,7 @@ const cardGrid = document.getElementById('card-grid');
 const searchInput = document.getElementById('search');
 const loadMoreButton = document.getElementById('load-more');
 
+// TODO: infinite scrolling
 function renderCards(cards) {
     cardGrid.innerHTML = '';
     cards.forEach(card => {
