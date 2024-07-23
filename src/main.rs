@@ -39,7 +39,7 @@ fn default_page() -> u32 {
 }
 
 fn default_limit() -> u32 {
-    100
+    25
 }
 
 fn default_search() -> String {

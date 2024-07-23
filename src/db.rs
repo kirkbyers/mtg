@@ -138,6 +138,7 @@ pub struct Card {
     pub set_code: Option<String>,
     pub collector_number: Option<String>,
     pub digital: Option<String>,
+    pub image_url: Option<String>,
 }
 
 pub fn search_cards(
@@ -149,13 +150,13 @@ pub fn search_cards(
     let offset = (page - 1) * page_size;
     let limit = page_size;
 
-    let mut stmt_str = String::from("SELECT id, oracle_id, name, lang, released_at, mana_cost, cmc, type_line, oracle_text, power, toughness, rarity, flavor_text, artist, set_code, collector_number, digital FROM cards ");
-
+    let mut stmt_str = String::from("SELECT cards.id, cards.oracle_id, cards.name, cards.lang, cards.released_at, cards.mana_cost, cards.cmc, cards.type_line, cards.oracle_text, cards.power, cards.toughness, cards.rarity, cards.flavor_text, cards.artist, cards.set_code, cards.collector_number, cards.digital, image_uris.normal FROM cards JOIN image_uris ON cards.id = image_uris.card_id ");
+    
     if !query.is_empty() {
-        stmt_str += "WHERE name LIKE ? ";
+        stmt_str += "WHERE cards.name LIKE ? ";
     }
 
-    stmt_str += "ORDER BY name LIMIT ? OFFSET ?;";
+    stmt_str += "ORDER BY cards.name LIMIT ? OFFSET ?;";
 
     let mut stmt = conn.prepare(
         &stmt_str
@@ -163,7 +164,7 @@ pub fn search_cards(
     let mut rows = if query.is_empty() {
         stmt.query(&[&limit.to_string(), &offset.to_string()])?
     } else {
-        stmt.query(&[query, &limit.to_string(), &offset.to_string()])?
+        stmt.query(&[&format!("%{}%", query), &limit.to_string(), &offset.to_string()])?
     };
 
     let mut results = Vec::new();
@@ -186,6 +187,7 @@ pub fn search_cards(
             set_code: row.get(14)?,
             collector_number: row.get(15)?,
             digital: row.get(16)?,
+            image_url: row.get(17)?,
         };
 
         results.push(card);
