@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magic: The Gathering Card Browser</title>
+    <link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div class="container">
+        <input type="text" class="search-bar" id="search" placeholder="Search cards by name, type, or text">
+        <div class="filters">
+            <select id="set-filter">
+                <option value="">All Sets</option>
+                <option value="ZNR">Zendikar Rising</option>
+                <option value="M21">Core Set 2021</option>
+            </select>
+            <select id="rarity-filter">
+                <option value="">All Rarities</option>
+                <option value="common">Common</option>
+                <option value="uncommon">Uncommon</option>
+                <option value="rare">Rare</option>
+                <option value="mythic">Mythic Rare</option>
+            </select>
+            <input type="number" id="cmc-filter" placeholder="Max CMC">
+            <select id="sort">
+                <option value="name">Sort by Name</option>
+                <option value="date">Sort by Release Date</option>
+                <option value="collector">Sort by Collector Number</option>
+            </select>
+        </div>
+        <div class="card-grid" id="card-grid"></div>
+        <button id="load-more">Load More</button>
+    </div>
+
+    <script src="/index.js"></script>
+</body>
+</html>

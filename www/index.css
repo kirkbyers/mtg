@@ -1,0 +1,85 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f0f0f0;
+}
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+.search-bar {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 20px;
+    font-size: 16px;
+}
+.filters {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+.filters select, .filters input {
+    padding: 5px;
+}
+.card-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+.card {
+    flex: 1 0 calc(20% - 20px);
+    max-width: calc(20% - 20px);
+    background-color: white;
+    border-radius: 10px;
+    padding: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.card img {
+    width: 100%;
+    height: auto;
+    border-radius: 5px;
+}
+.card h3 {
+    margin: 10px 0 5px;
+}
+.card p {
+    margin: 5px 0;
+    font-size: 14px;
+}
+#load-more {
+    display: block;
+    width: 200px;
+    margin: 20px auto;
+    padding: 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+@media (max-width: 1024px) {
+    .card {
+        flex: 1 0 calc(33.333% - 20px);
+        max-width: calc(33.333% - 20px);
+    }
+}
+@media (max-width: 768px) {
+    .filters {
+        flex-direction: column;
+    }
+    .filters select, .filters input {
+        margin-bottom: 10px;
+    }
+    .card {
+        flex: 1 0 calc(50% - 20px);
+        max-width: calc(50% - 20px);
+    }
+}
+@media (max-width: 480px) {
+    .card {
+        flex: 1 0 100%;
+        max-width: 100%;
+    }
+}
