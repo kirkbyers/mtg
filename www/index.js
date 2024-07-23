@@ -27,16 +27,21 @@ function renderCards(cards) {
     });
 }
 
-function filterCards() {
+let debounceTimeout;
+
+function searchCards() {
+  clearTimeout(debounceTimeout);
+  debounceTimeout = setTimeout(() => {
     const searchTerm = searchInput.value.toLowerCase();
     const filteredCards = mockCards.filter(card => 
         card.name.toLowerCase().includes(searchTerm) ||
         card.type.toLowerCase().includes(searchTerm)
     );
     renderCards(filteredCards);
+  }, 300);
 }
 
-searchInput.addEventListener('input', filterCards);
+searchInput.addEventListener('input', searchCards);
 loadMoreButton.addEventListener('click', () => {
     // In a real app, this would load more cards from the server
     alert('In a real app, this would load more cards.');

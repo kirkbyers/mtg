@@ -1,5 +1,4 @@
 use axum::Router;
-use reqwest::StatusCode;
 use tower_http::services::ServeDir;
 
 #[tokio::main]
