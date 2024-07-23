@@ -10,8 +10,8 @@ const mockCards = [
 ];
 
 function getCardData(page = 1, limit = 10, search = '') {
-  page = urlPage ? parseInt(urlPage) : page;
-  limit = urlLimit ? parseInt(urlLimit) : limit;
+  page = page === 1 && urlPage ? parseInt(urlPage) : page;
+  limit = limit === 10 && urlLimit ? parseInt(urlLimit) : limit;
   search = search === '' && urlSearch ? urlSearch : search;
 
   const url = `/api/cards?page=${page}&limit=${limit}&search=${search}`;
@@ -68,12 +68,12 @@ searchInput.addEventListener('input', searchCards);
 loadMoreButton.addEventListener('click', () => {
   const queryParams = new URLSearchParams({ page: urlPage + 1, limit: urlLimit, search: urlSearch }).toString();
   history.pushState(null, null, `?${queryParams}`);
-  getCardData(urlPage);
+  getCardData(urlPage + 1);
   window.scrollTo(0, 0);
 });
 
 const urlParams = new URLSearchParams(window.location.search);
-const urlPage = parseInt(urlParams.get('page')) + 1;
+const urlPage = parseInt(urlParams.get('page'));
 const urlLimit = parseInt(urlParams.get('limit'));
 const urlSearch = urlParams.get('search');
 
