@@ -1,7 +1,7 @@
 use axum::{routing::get, Router};
 use mtg::{
     db::{init_conn, DbConnection},
-    routes::get_cards,
+    routes::{get_card_vec_info, get_cards, get_vector_version},
 };
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -14,6 +14,8 @@ async fn main() {
     // Create a new router
     let app = Router::new()
         .route("/api/cards", get(get_cards))
+        .route("/api/vec_version", get(get_vector_version))
+        .route("/api/card_vec_info", get(get_card_vec_info))
         .nest_service("/", ServeDir::new("www"))
         .with_state(db);
 

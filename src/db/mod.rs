@@ -1,4 +1,7 @@
+pub mod vectors;
+
 use rusqlite::Connection;
+use rusqlite::Result;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
