@@ -114,7 +114,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mana_cost: String = f.get(5)?;
         let type_line: String = f.get(6)?;
 
-        Ok(format!("<name>{:?}<power>{:?}<toughness>{:?}<cost>{:?}<type>{:?}<oracle>{:?}<flavor>{:?}", &name, &power, &toughtness, &mana_cost, &type_line, &oracle, &flavor,))
+        Ok(format!(
+            "<name>{:?}<power>{:?}<toughness>{:?}<cost>{:?}<type>{:?}<oracle>{:?}<flavor>{:?}",
+            &name, &power, &toughtness, &mana_cost, &type_line, &oracle, &flavor,
+        ))
     };
 
     // Loop through the newly stored data, and process the vector embeddings

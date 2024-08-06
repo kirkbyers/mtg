@@ -1,5 +1,9 @@
 use rusqlite::Connection;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use tokio::sync::Mutex;
+
+// Wrapper for SQLite connection
+pub struct DbConnection(pub Mutex<Connection>);
 
 pub fn init_conn() -> Result<Connection, Box<dyn std::error::Error>> {
     let conn = Connection::open("./data/scryfall_cards.db")?;
@@ -151,20 +155,22 @@ pub fn search_cards(
     let limit = page_size;
 
     let mut stmt_str = String::from("SELECT cards.id, cards.oracle_id, cards.name, cards.lang, cards.released_at, cards.mana_cost, cards.cmc, cards.type_line, cards.oracle_text, cards.power, cards.toughness, cards.rarity, cards.flavor_text, cards.artist, cards.set_code, cards.collector_number, cards.digital, image_uris.normal FROM cards JOIN image_uris ON cards.id = image_uris.card_id ");
-    
+
     if !query.is_empty() {
         stmt_str += "WHERE cards.name LIKE ? ";
     }
 
     stmt_str += "ORDER BY cards.name LIMIT ? OFFSET ?;";
 
-    let mut stmt = conn.prepare(
-        &stmt_str
-    )?;
+    let mut stmt = conn.prepare(&stmt_str)?;
     let mut rows = if query.is_empty() {
         stmt.query(&[&limit.to_string(), &offset.to_string()])?
     } else {
-        stmt.query(&[&format!("%{}%", query), &limit.to_string(), &offset.to_string()])?
+        stmt.query(&[
+            &format!("%{}%", query),
+            &limit.to_string(),
+            &offset.to_string(),
+        ])?
     };
 
     let mut results = Vec::new();
