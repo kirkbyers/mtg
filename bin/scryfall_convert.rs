@@ -90,7 +90,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     progress_bar.set_message("Processing embeddings");
     let page_size = 100;
     let mut get_card_info_page = conn.prepare(&format!(
-        "SELECT name, COALESCE(oracle_text, ''), COALESCE(flavor_text, ''), rowid
+        "SELECT 
+            name, 
+            COALESCE(oracle_text, ''),
+            COALESCE(flavor_text, ''),
+            COALESCE(power, ''),
+            COALESCE(toughness, ''),
+            COALESCE(type_line, ''),
+            COALESCE(mana_cost, ''),
+            rowid
         FROM cards c
         WHERE rowid >= ?
         LIMIT {};",
@@ -101,8 +109,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let name: String = f.get(0)?;
         let oracle: String = f.get(1)?;
         let flavor: String = f.get(2)?;
+        let power: String = f.get(3)?;
+        let toughtness: String = f.get(4)?;
+        let mana_cost: String = f.get(5)?;
+        let type_line: String = f.get(6)?;
 
-        Ok(format!("{:?} {:?} {:?}", &name, &oracle, &flavor,))
+        Ok(format!("<name>{:?}<power>{:?}<toughness>{:?}<cost>{:?}<type>{:?}<oracle>{:?}<flavor>{:?}", &name, &power, &toughtness, &mana_cost, &type_line, &oracle, &flavor,))
     };
 
     // Loop through the newly stored data, and process the vector embeddings
