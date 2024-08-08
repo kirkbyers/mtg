@@ -2,18 +2,12 @@ use crate::{
     db::DbConnection,
     embedings::{init, string_to_embedding},
 };
-use axum::{
-    extract::{
-        rejection::{self, JsonRejection},
-        State,
-    },
-    Json,
-};
+use anyhow::Result;
+use axum::{extract::State, response::IntoResponse, Json};
 use reqwest::StatusCode;
-use rusqlite::Row;
 use std::sync::Arc;
 
-pub async fn get_vector_version(State(db): State<Arc<DbConnection>>) -> (StatusCode, Json<String>) {
+pub async fn get_vector_version(State(db): State<Arc<DbConnection>>) -> impl IntoResponse {
     let conn = db.0.lock().await;
 
     let vec_verstion: String = match conn.query_row("SELECT vec_version();", [], |row| row.get(0)) {
@@ -32,25 +26,27 @@ pub async fn get_vector_version(State(db): State<Arc<DbConnection>>) -> (StatusC
     )
 }
 
-pub async fn get_card_vec_info(State(db): State<Arc<DbConnection>>) -> (StatusCode, Json<String>) {
+pub async fn get_card_vec_info(
+    State(db): State<Arc<DbConnection>>,
+) -> Result<(StatusCode, impl IntoResponse), (StatusCode, impl IntoResponse)> {
     let conn = db.0.lock().await;
 
     let model = match init() {
         Ok(r) => r,
         Err(e) => {
-            return (
+            return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(format!("Failed to init fastembed model. \n\n {}", e)),
-            )
+            ))
         }
     };
     let search = match string_to_embedding("flying hexproof", &model) {
         Ok(r) => r,
         Err(e) => {
-            return (
+            return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(format!("Failed to embedd text. \n\n {}", e)),
-            )
+            ))
         }
     };
 
@@ -69,10 +65,10 @@ pub async fn get_card_vec_info(State(db): State<Arc<DbConnection>>) -> (StatusCo
     )) {
         Ok(s) => s,
         Err(e) => {
-            return (
+            return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(format!("Unable to prepare statement. \n\n {}", e)),
-            )
+            ))
         }
     };
 
@@ -81,10 +77,10 @@ pub async fn get_card_vec_info(State(db): State<Arc<DbConnection>>) -> (StatusCo
     }) {
         Ok(rows) => rows,
         Err(e) => {
-            return (
+            return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(format!("Unable to get vec rows. \n\n {}", e)),
-            )
+            ))
         }
     };
 
@@ -93,19 +89,19 @@ pub async fn get_card_vec_info(State(db): State<Arc<DbConnection>>) -> (StatusCo
         match row {
             Ok(id) => row_ids.push(id),
             Err(e) => {
-                return (
+                return Err((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(format!("Error while iterating rows. \n\n {}", e)),
-                )
+                ))
             }
         }
     }
 
     if row_ids.is_empty() {
-        return (StatusCode::NOT_FOUND, Json("No rows found.".to_string()));
+        return Err((StatusCode::NOT_FOUND, Json("No rows found.".to_string())));
     }
 
     let res: Vec<String> = row_ids.into_iter().map(|x| format!("{:?}", x)).collect();
 
-    (StatusCode::OK, Json(format!("{:?}", res)))
+    Ok((StatusCode::OK, Json(res)))
 }

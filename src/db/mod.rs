@@ -1,17 +1,26 @@
 pub mod vectors;
 
-use rusqlite::Connection;
-use rusqlite::Result;
+use anyhow::{anyhow, Context, Result};
+use rusqlite::{ffi::sqlite3_auto_extension, named_params, Connection};
 use serde::{Deserialize, Serialize};
+use sqlite_vec::sqlite3_vec_init;
 use tokio::sync::Mutex;
+
+use crate::embedings::{init, string_to_embedding};
 
 // Wrapper for SQLite connection
 pub struct DbConnection(pub Mutex<Connection>);
 
-pub fn init_conn() -> Result<Connection, Box<dyn std::error::Error>> {
+pub fn init_conn() -> Result<Connection> {
+    unsafe {
+        sqlite3_auto_extension(Some(std::mem::transmute(sqlite3_vec_init as *const ())));
+    };
+    println!("Mounted sqlite-vec");
+
     let conn = Connection::open("./data/scryfall_cards.db")?;
 
-    unsafe { conn.load_extension("./vec0.dylib", None)? };
+    let sqlite_vec_test: String = conn.query_row("SELECT vec_version();", [], |row| row.get(0))?;
+    println!("{}", sqlite_vec_test);
 
     conn.execute(
         "
@@ -110,7 +119,7 @@ pub fn prep_insert_set(conn: &Connection) -> rusqlite::Result<rusqlite::Statemen
 
 pub fn get_random_image_uris(
     conn: &Connection,
-) -> Result<(String, String, String, String, String, String), Box<dyn std::error::Error>> {
+) -> Result<(String, String, String, String, String, String)> {
     let mut stmt = conn.prepare("SELECT small, normal, large, png, art_crop, border_crop FROM image_uris ORDER BY random() LIMIT 1;")?;
     let mut rows = stmt.query([])?;
     if let Some(row) = rows.next()? {
@@ -122,7 +131,7 @@ pub fn get_random_image_uris(
         let border_crop: String = row.get(5)?;
         Ok((small, normal, large, png, art_crop, border_crop))
     } else {
-        Err("No image URIs found".into())
+        Err(anyhow!("No image URIs found".to_string()))
     }
 }
 
@@ -153,27 +162,66 @@ pub fn search_cards(
     query: &str,
     page: u32,
     page_size: u32,
-) -> Result<Vec<Card>, Box<dyn std::error::Error>> {
+) -> Result<Vec<Card>> {
     let offset = (page - 1) * page_size;
     let limit = page_size;
 
-    let mut stmt_str = String::from("SELECT cards.id, cards.oracle_id, cards.name, cards.lang, cards.released_at, cards.mana_cost, cards.cmc, cards.type_line, cards.oracle_text, cards.power, cards.toughness, cards.rarity, cards.flavor_text, cards.artist, cards.set_code, cards.collector_number, cards.digital, image_uris.normal FROM cards JOIN image_uris ON cards.id = image_uris.card_id ");
+    let stmt_str = match query.is_empty() {
+        true => String::from(
+            "
+            SELECT 
+                c.id, c.oracle_id, c.name, c.lang, 
+                c.released_at, c.mana_cost, c.cmc, 
+                c.type_line, c.oracle_text, c.power, 
+                c.toughness, c.rarity, c.flavor_text, 
+                c.artist, c.set_code, c.collector_number, 
+                c.digital, iu.normal
+            FROM cards as c
+            JOIN image_uris as iu
+            ON c.id = iu.card_id 
+            GROUP BY c.name
+            ORDER BY c.name
+            LIMIT :limit
+            OFFSET :offset ;",
+        ),
+        false => String::from(
+            "
+            SELECT c.id, c.oracle_id, c.name, c.lang, 
+                c.released_at, c.mana_cost, c.cmc, 
+                c.type_line, c.oracle_text, c.power, 
+                c.toughness, c.rarity, c.flavor_text, 
+                c.artist, c.set_code, c.collector_number, 
+                c.digital, iu.normal, cv.rowid, cv.distance
+            FROM card_vecs as cv
+            JOIN cards as c
+            ON c.rowid = cv.rowid
+            JOIN image_uris as iu
+            ON c.id = iu.card_id
+            WHERE embedding match :search
+            and k = :limit
+            GROUP BY c.name 
+            ORDER BY distance
+            LIMIT :limit
+            OFFSET :offset ;",
+        ),
+    };
 
-    if !query.is_empty() {
-        stmt_str += "WHERE cards.name LIKE ? ";
-    }
-
-    stmt_str += "ORDER BY cards.name LIMIT ? OFFSET ?;";
-
-    let mut stmt = conn.prepare(&stmt_str)?;
+    let mut stmt = conn
+        .prepare(&stmt_str)
+        .context("Failed to prepare card search")?;
     let mut rows = if query.is_empty() {
-        stmt.query(&[&limit.to_string(), &offset.to_string()])?
+        stmt.query(named_params! {":limit": &limit.to_string(), ":offset": &offset.to_string()})
+            .context("Failed to execute prepared search")?
     } else {
-        stmt.query(&[
-            &format!("%{}%", query),
-            &limit.to_string(),
-            &offset.to_string(),
-        ])?
+        let embed_model = init().context("Failed to init fastembed")?;
+        let embedded_search = string_to_embedding(&query, &embed_model)
+            .context("Failed to convert search to embedding")?;
+        stmt.query(named_params! {
+            ":search": format!("{:?}", embedded_search),
+            ":limit": &limit.to_string(),
+            ":offset": &offset.to_string()
+        })
+        .context("Failed to execute prepared search")?
     };
 
     let mut results = Vec::new();

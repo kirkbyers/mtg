@@ -1,8 +1,10 @@
-use crate::db::{search_cards, Card, DbConnection};
+use crate::db::{search_cards, DbConnection};
 use axum::{
     extract::{Query, State},
+    response::IntoResponse,
     Json,
 };
+use reqwest::StatusCode;
 use serde::Deserialize;
 use std::sync::Arc;
 
@@ -31,7 +33,7 @@ pub fn default_search() -> String {
 pub async fn get_cards(
     State(db): State<Arc<DbConnection>>,
     params: Query<CardQueryParams>,
-) -> Json<Vec<Card>> {
+) -> impl IntoResponse {
     let page = params.page;
     let limit = params.limit;
     let search = params.search.clone();
@@ -39,14 +41,11 @@ pub async fn get_cards(
     let conn = db.0.lock().await;
 
     match search_cards(&conn, &search, page, limit) {
-        Ok(cards) => {
-            println!("Found cards: {:?}", cards);
-            Json(cards)
-        }
+        Ok(cards) => (StatusCode::OK, Json(cards)),
         Err(e) => {
             println!("Error finding cards: {:?}", e);
             // TODO: logger the error
-            vec![].into()
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![]))
         }
     }
 }

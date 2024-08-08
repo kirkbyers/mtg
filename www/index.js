@@ -1,14 +1,3 @@
-// Mock data for demonstration
-const mockCards = [
-  { 
-    name: "\"Ach! Hans, Run!\"",
-    manaCost: "{2}{R}{R}{G}{G}",
-    type: "Enchantment",
-    imageUrl: "https://cards.scryfall.io/normal/front/8/4/84f2c8f5-8e11-4639-b7de-00e4a2cbabee.jpg?1618996002"
-  },
-  // Add more cards here...
-];
-
 function getCardData(page = 1, limit = 10, search = '') {
   page = page === 1 && urlPage ? parseInt(urlPage) : page;
   limit = limit === 10 && urlLimit ? parseInt(urlLimit) : limit;
@@ -73,8 +62,8 @@ loadMoreButton.addEventListener('click', () => {
 });
 
 const urlParams = new URLSearchParams(window.location.search);
-const urlPage = parseInt(urlParams.get('page'));
-const urlLimit = parseInt(urlParams.get('limit'));
+const urlPage = parseInt(urlParams.get('page') || 1);
+const urlLimit = parseInt(urlParams.get('limit') || 10);
 const urlSearch = urlParams.get('search');
 
 searchInput.value = urlSearch;

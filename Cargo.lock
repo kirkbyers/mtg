@@ -1456,6 +1456,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "sqlite-vec",
  "tokio",
  "tower",
  "tower-http",
@@ -2372,6 +2373,15 @@ dependencies = [
  "nom",
  "serde",
  "unicode-segmentation",
+]
+
+[[package]]
+name = "sqlite-vec"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "89f17944e8bbc74fd7b39e4b833f21169342fb6c53c9f39e784d2e2794271aef"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
