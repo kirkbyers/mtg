@@ -1452,6 +1452,7 @@ dependencies = [
  "fastembed",
  "image",
  "indicatif",
+ "rand",
  "reqwest",
  "rusqlite",
  "serde",

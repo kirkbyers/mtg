@@ -16,6 +16,10 @@ path = "./bin/scryfall_convert.rs"
 name = "background_generator"
 path = "./bin/background_generator.rs"
 
+[[bin]]
+name = "cluster_cards"
+path = "./bin/cluster_cards.rs"
+
 [lib]
 path = "src/lib.rs"
 
@@ -29,6 +33,7 @@ chrono = "0.4.38"
 fastembed = { version = "3.5.0" }
 image = "0.25.1"
 indicatif = "0.17.8"
+rand = "0.8.5"
 reqwest = { version = "0.12.5", features = ["blocking"] }
 rusqlite = { version = "0.31.0", features = ["load_extension", "bundled"] }
 serde = "1.0.204"

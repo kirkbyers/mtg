@@ -1,10 +1,12 @@
 pub mod vectors;
 
 use anyhow::{anyhow, Context, Result};
-use rusqlite::{ffi::sqlite3_auto_extension, named_params, Connection};
+use rusqlite::{ffi::sqlite3_auto_extension, named_params, params, Connection};
 use serde::{Deserialize, Serialize};
 use sqlite_vec::sqlite3_vec_init;
 use tokio::sync::Mutex;
+use vectors::Point;
+use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::embedings::{init, string_to_embedding};
 
@@ -55,6 +57,8 @@ pub fn init_conn() -> Result<Connection> {
             digital BOOLEAN,
             FOREIGN KEY (set_code) REFERENCES sets(code)
         );
+
+        CREATE INDEX IF NOT EXISTS idx_cards_set_code ON cards(set_code);
     ",
         [],
     )?;
@@ -82,7 +86,50 @@ pub fn init_conn() -> Result<Connection> {
         [],
     )?;
 
+    conn.execute("
+        CREATE TABLE IF NOT EXISTS card_cluster_assigments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            card_rowid INTEGER NOT NULL,
+            cluster_id INTEGER NOT NULL,
+            assigment_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_card_cluster_assigments_cluster_id ON card_cluster_assigments(cluster_id);
+    ", [])?;
+
     Ok(conn)
+}
+
+pub fn prep_insert_card_cluster_assigments(conn: &Connection) -> rusqlite::Result<rusqlite::Statement> {
+    conn.prepare(
+        "INSERT OR REPLACE INTO card_cluster_assigments (
+            card_rowid, cluster_id, assigment_id
+        ) VALUES (?, ?, ?);"
+    )
+}
+
+pub fn insert_cluster_assignments(conn: &Connection, assignments: &[usize], points: &[Point]) -> Result<()> {
+    let max_assignment_id: Option<i64> = conn.query_row(
+        "SELECT MAX(assigment_id) FROM card_cluster_assigments;",
+        [],
+        |row| row.get(0)
+    )?;
+
+    let next_assignment_id = max_assignment_id.unwrap_or(0) + 1;
+    let progress_bar = ProgressBar::new(assignments.len() as u64);
+    progress_bar.set_style(ProgressStyle::default_bar()
+        .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} assignments (ETA: {eta})")
+        .unwrap()
+        .progress_chars("##-"));
+    let mut stmt = conn.prepare("INSERT INTO card_cluster_assigments (card_rowid, cluster_id, assigment_id) VALUES (?, ?, ?)")?;
+    for (i, &cluster) in assignments.iter().enumerate() {
+        let point = &points[i];
+        stmt.execute(params![point.rowid, cluster as i64, next_assignment_id])?;
+        progress_bar.inc(1);
+    }
+    progress_bar.finish_with_message("Assignments Saved");
+    Ok(())
 }
 
 pub fn prep_insert_image_uris(conn: &Connection) -> rusqlite::Result<rusqlite::Statement> {
