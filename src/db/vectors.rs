@@ -1,6 +1,6 @@
-use rusqlite::{Connection, Result, Statement};
-use rand::{thread_rng, seq::SliceRandom};
 use indicatif::{ProgressBar, ProgressStyle};
+use rand::{seq::SliceRandom, thread_rng};
+use rusqlite::{Connection, Result, Statement};
 
 pub fn get_vec_version_stmt(conn: &Connection) -> Result<Statement> {
     conn.prepare("SELECT vec_version();")
@@ -25,7 +25,11 @@ pub fn prep_get_all_embeddings(conn: &Connection) -> Result<Statement> {
 ///
 /// The calculated Euclidean distance as a float.
 pub fn euclidean_distance(a: &[f32], b: &[f32]) -> f32 {
-    a.iter().zip(b).map(|(x, y)| (x - y).powi(2)).sum::<f32>().sqrt()
+    a.iter()
+        .zip(b)
+        .map(|(x, y)| (x - y).powi(2))
+        .sum::<f32>()
+        .sqrt()
 }
 
 #[derive(Debug, Clone)]
@@ -47,10 +51,12 @@ pub fn k_means(points: &[Point], k: usize, max_iterations: usize) -> Vec<usize> 
     let mut assignments = vec![0; n];
 
     let progress_bar = ProgressBar::new(max_iterations as u64);
-    progress_bar.set_style(ProgressStyle::default_bar()
-        .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} iterations (ETA: {eta})")
-        .unwrap()
-        .progress_chars("##-"));
+    progress_bar.set_style(
+        ProgressStyle::default_bar()
+            .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} iterations (ETA: {eta})")
+            .unwrap()
+            .progress_chars("##-"),
+    );
 
     for _ in 0..max_iterations {
         // Assign points to nearest centroid

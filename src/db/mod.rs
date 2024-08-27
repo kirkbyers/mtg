@@ -1,12 +1,12 @@
 pub mod vectors;
 
 use anyhow::{anyhow, Context, Result};
+use indicatif::{ProgressBar, ProgressStyle};
 use rusqlite::{ffi::sqlite3_auto_extension, named_params, params, Connection};
 use serde::{Deserialize, Serialize};
 use sqlite_vec::sqlite3_vec_init;
 use tokio::sync::Mutex;
 use vectors::Point;
-use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::embedings::{init, string_to_embedding};
 
@@ -101,27 +101,35 @@ pub fn init_conn() -> Result<Connection> {
     Ok(conn)
 }
 
-pub fn prep_insert_card_cluster_assigments(conn: &Connection) -> rusqlite::Result<rusqlite::Statement> {
+pub fn prep_insert_card_cluster_assigments(
+    conn: &Connection,
+) -> rusqlite::Result<rusqlite::Statement> {
     conn.prepare(
         "INSERT OR REPLACE INTO card_cluster_assigments (
             card_rowid, cluster_id, assigment_id
-        ) VALUES (?, ?, ?);"
+        ) VALUES (?, ?, ?);",
     )
 }
 
-pub fn insert_cluster_assignments(conn: &Connection, assignments: &[usize], points: &[Point]) -> Result<()> {
+pub fn insert_cluster_assignments(
+    conn: &Connection,
+    assignments: &[usize],
+    points: &[Point],
+) -> Result<()> {
     let max_assignment_id: Option<i64> = conn.query_row(
         "SELECT MAX(assigment_id) FROM card_cluster_assigments;",
         [],
-        |row| row.get(0)
+        |row| row.get(0),
     )?;
 
     let next_assignment_id = max_assignment_id.unwrap_or(0) + 1;
     let progress_bar = ProgressBar::new(assignments.len() as u64);
-    progress_bar.set_style(ProgressStyle::default_bar()
-        .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} assignments (ETA: {eta})")
-        .unwrap()
-        .progress_chars("##-"));
+    progress_bar.set_style(
+        ProgressStyle::default_bar()
+            .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} assignments (ETA: {eta})")
+            .unwrap()
+            .progress_chars("##-"),
+    );
     let mut stmt = conn.prepare("INSERT INTO card_cluster_assigments (card_rowid, cluster_id, assigment_id) VALUES (?, ?, ?)")?;
     for (i, &cluster) in assignments.iter().enumerate() {
         let point = &points[i];
