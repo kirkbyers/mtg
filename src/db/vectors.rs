@@ -14,6 +14,26 @@ pub fn prep_get_all_embeddings(conn: &Connection) -> Result<Statement> {
     conn.prepare("SELECT embedding, rowid FROM card_vecs;")
 }
 
+pub const SELECT_PAGINATED_SEMANTIC_SEARCH: &str = "
+    SELECT c.id, c.oracle_id, c.name, c.lang, 
+        c.released_at, c.mana_cost, c.cmc, 
+        c.type_line, c.oracle_text, c.power, 
+        c.toughness, c.rarity, c.flavor_text, 
+        c.artist, c.set_code, c.collector_number, 
+        c.digital, iu.normal, cv.rowid, cv.distance
+    FROM card_vecs as cv
+    JOIN cards as c
+    ON c.rowid = cv.rowid
+    JOIN image_uris as iu
+    ON c.id = iu.card_id
+    WHERE embedding match :search
+    and k = :limit
+    GROUP BY c.name 
+    ORDER BY distance
+    LIMIT :limit
+    OFFSET :offset;
+    ";
+
 /// Calculates the Euclidean distance between two float arrays.
 ///
 /// # Arguments

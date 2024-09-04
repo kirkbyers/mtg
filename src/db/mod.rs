@@ -6,7 +6,7 @@ use rusqlite::{ffi::sqlite3_auto_extension, named_params, params, Connection};
 use serde::{Deserialize, Serialize};
 use sqlite_vec::sqlite3_vec_init;
 use tokio::sync::Mutex;
-use vectors::Point;
+use vectors::{Point, SELECT_PAGINATED_SEMANTIC_SEARCH};
 
 use crate::embedings::{init, string_to_embedding};
 
@@ -172,6 +172,19 @@ pub fn prep_insert_set(conn: &Connection) -> rusqlite::Result<rusqlite::Statemen
     )
 }
 
+const SELECT_ALL_CARDS: &str = "
+    SELECT 
+        c.id, c.oracle_id, c.name, c.lang, 
+        c.released_at, c.mana_cost, c.cmc, 
+        c.type_line, c.oracle_text, c.power, 
+        c.toughness, c.rarity, c.flavor_text, 
+        c.artist, c.set_code, c.collector_number, 
+        c.digital, iu.normal
+    FROM cards as c
+    JOIN image_uris as iu
+    ON c.id = iu.card_id 
+";
+
 pub fn get_random_image_uris(
     conn: &Connection,
 ) -> Result<(String, String, String, String, String, String)> {
@@ -212,71 +225,66 @@ pub struct Card {
     pub image_url: Option<String>,
 }
 
+pub enum CardSearchType {
+    Semantic,
+    Like,
+}
+
 pub fn search_cards(
     conn: &Connection,
-    query: &str,
+    search_query: &str,
     page: u32,
     page_size: u32,
+    search_type: CardSearchType,
 ) -> Result<Vec<Card>> {
     let offset = (page - 1) * page_size;
     let limit = page_size;
 
-    let stmt_str = match query.is_empty() {
-        true => String::from(
-            "
-            SELECT 
-                c.id, c.oracle_id, c.name, c.lang, 
-                c.released_at, c.mana_cost, c.cmc, 
-                c.type_line, c.oracle_text, c.power, 
-                c.toughness, c.rarity, c.flavor_text, 
-                c.artist, c.set_code, c.collector_number, 
-                c.digital, iu.normal
-            FROM cards as c
-            JOIN image_uris as iu
-            ON c.id = iu.card_id 
-            GROUP BY c.name
-            ORDER BY c.name
-            LIMIT :limit
-            OFFSET :offset ;",
-        ),
-        false => String::from(
-            "
-            SELECT c.id, c.oracle_id, c.name, c.lang, 
-                c.released_at, c.mana_cost, c.cmc, 
-                c.type_line, c.oracle_text, c.power, 
-                c.toughness, c.rarity, c.flavor_text, 
-                c.artist, c.set_code, c.collector_number, 
-                c.digital, iu.normal, cv.rowid, cv.distance
-            FROM card_vecs as cv
-            JOIN cards as c
-            ON c.rowid = cv.rowid
-            JOIN image_uris as iu
-            ON c.id = iu.card_id
-            WHERE embedding match :search
-            and k = :limit
-            GROUP BY c.name 
-            ORDER BY distance
-            LIMIT :limit
-            OFFSET :offset ;",
-        ),
+    const PAGINATION_STMTS: &str = "
+    GROUP BY c.name
+    LIMIT :limit
+    OFFSET :offset
+    ";
+
+    let stmt_str = if search_query.is_empty() {
+        String::from(format!("{}{};", SELECT_ALL_CARDS, PAGINATION_STMTS))
+    } else {
+        match search_type {
+            CardSearchType::Semantic => String::from(SELECT_PAGINATED_SEMANTIC_SEARCH),
+            CardSearchType::Like => String::from(format!(
+                "{} WHERE c.name LIKE :search COLLATE NOCASE {};",
+                SELECT_ALL_CARDS, PAGINATION_STMTS
+            )),
+        }
     };
 
     let mut stmt = conn
         .prepare(&stmt_str)
         .context("Failed to prepare card search")?;
-    let mut rows = if query.is_empty() {
+    let mut rows = if search_query.is_empty() {
         stmt.query(named_params! {":limit": &limit.to_string(), ":offset": &offset.to_string()})
-            .context("Failed to execute prepared search")?
+            .context("Failed to execute prepared pagination no search")?
     } else {
-        let embed_model = init().context("Failed to init fastembed")?;
-        let embedded_search = string_to_embedding(&query, &embed_model)
-            .context("Failed to convert search to embedding")?;
-        stmt.query(named_params! {
-            ":search": format!("{:?}", embedded_search),
-            ":limit": &limit.to_string(),
-            ":offset": &offset.to_string()
-        })
-        .context("Failed to execute prepared search")?
+        match search_type {
+            CardSearchType::Semantic => {
+                let embed_model = init().context("Failed to init fastembed")?;
+                let embedded_search = string_to_embedding(&search_query, &embed_model)
+                    .context("Failed to convert search to embedding")?;
+                stmt.query(named_params! {
+                    ":search": format!("{:?}", embedded_search),
+                    ":limit": &limit.to_string(),
+                    ":offset": &offset.to_string()
+                })
+                .context("Failed to execute prepared search")?
+            }
+            CardSearchType::Like => stmt
+                .query(named_params! {
+                    ":search": format!("%{}%", &search_query.to_string()),
+                    ":limit": &limit.to_string(),
+                    ":offset": &offset.to_string()
+                })
+                .context("Failed to execute prepared search")?,
+        }
     };
 
     let mut results = Vec::new();

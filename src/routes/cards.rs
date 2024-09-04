@@ -1,4 +1,4 @@
-use crate::db::{search_cards, DbConnection};
+use crate::db::{search_cards, CardSearchType, DbConnection};
 use axum::{
     extract::{Query, State},
     response::IntoResponse,
@@ -40,7 +40,7 @@ pub async fn get_cards(
 
     let conn = db.0.lock().await;
 
-    match search_cards(&conn, &search, page, limit) {
+    match search_cards(&conn, &search, page, limit, CardSearchType::Like) {
         Ok(cards) => (StatusCode::OK, Json(cards)),
         Err(e) => {
             println!("Error finding cards: {:?}", e);
