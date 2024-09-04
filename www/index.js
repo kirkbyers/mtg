@@ -1,3 +1,8 @@
+let urlParams = new URLSearchParams(window.location.search);
+let urlPage = parseInt(urlParams.get('page') || 1);
+let urlLimit = parseInt(urlParams.get('limit') || 10);
+let urlSearch = urlParams.get('search');
+
 function getCardData(page = 1, limit = 10, search = '') {
   page = page === 1 && urlPage ? parseInt(urlPage) : page;
   limit = limit === 10 && urlLimit ? parseInt(urlLimit) : limit;
@@ -25,6 +30,7 @@ function getCardData(page = 1, limit = 10, search = '') {
 
 const cardGrid = document.getElementById('card-grid');
 const searchInput = document.getElementById('search');
+searchInput.value = urlSearch;
 const loadMoreButton = document.getElementById('load-more');
 
 // TODO: infinite scrolling
@@ -59,14 +65,15 @@ loadMoreButton.addEventListener('click', () => {
   history.pushState(null, null, `?${queryParams}`);
   getCardData(urlPage + 1);
   window.scrollTo(0, 0);
+  parseUrlParams();
 });
 
-const urlParams = new URLSearchParams(window.location.search);
-const urlPage = parseInt(urlParams.get('page') || 1);
-const urlLimit = parseInt(urlParams.get('limit') || 10);
-const urlSearch = urlParams.get('search');
-
-searchInput.value = urlSearch;
+const parseUrlParams = () => {
+  urlParams = new URLSearchParams(window.location.search);
+  urlPage = parseInt(urlParams.get('page') || 1);
+  urlLimit = parseInt(urlParams.get('limit') || 10);
+  urlSearch = urlParams.get('search');
+}
 
 // Initial render
 getCardData();
