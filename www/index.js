@@ -4,6 +4,7 @@ let urlLimit = parseInt(urlParams.get('limit') || 10);
 let urlSearch = urlParams.get('search');
 
 function getCardData(page = 1, limit = 10, search = '') {
+  // TODO: Fix this jank. Make args option and check for undef
   page = page === 1 && urlPage ? parseInt(urlPage) : page;
   limit = limit === 10 && urlLimit ? parseInt(urlLimit) : limit;
   search = search === '' && urlSearch ? urlSearch : search;

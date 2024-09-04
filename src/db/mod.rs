@@ -252,7 +252,7 @@ pub fn search_cards(
         match search_type {
             CardSearchType::Semantic => String::from(SELECT_PAGINATED_SEMANTIC_SEARCH),
             CardSearchType::Like => String::from(format!(
-                "{} WHERE c.name LIKE :search COLLATE NOCASE {};",
+                "{} WHERE c.name LIKE :search COLLATE NOCASE or c.oracle_text LIKE :search COLLATE NOCASE or c.flavor_text LIKE :search COLLATE NOCASE {};",
                 SELECT_ALL_CARDS, PAGINATION_STMTS
             )),
         }
